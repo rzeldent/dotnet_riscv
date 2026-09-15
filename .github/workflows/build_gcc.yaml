@@ -17,10 +17,6 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-
-    - name: Add Kitware GPG key
-      run: |
-        wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc | gpg --dearmor - | sudo tee /etc/apt/trusted.gpg.d/kitware.gpg > /dev/null
     - name: Install prerequisities
       run: |
         sudo dpkg --add-architecture riscv64 && \
@@ -56,6 +52,7 @@ jobs:
 
     - name: Update Node.js
       run: |
+        wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc | gpg --dearmor - | sudo tee /etc/apt/trusted.gpg.d/kitware.gpg > /dev/null
         sudo apt-get update
         sudo apt-get autoremove -y nodejs
         curl -fsSL https://deb.nodesource.com/setup_18.x | sudo bash - && sudo apt-get install -y nodejs
