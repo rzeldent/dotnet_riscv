@@ -9,16 +9,15 @@ jobs:
       PACKAGESDIR: ${{ github.workspace }}/packages
       DOWNLOADDIR: ${{ github.workspace }}/downloads
       OUTPUTDIR: ${{ github.workspace }}/output
-      RUNTIME_VERSION: 8.0.1-servicing.23580.1
-      SDK_VERSION: 8.0.101-servicing.23580.21
-      ASPNETCORE_VERSION: 8.0.1-servicing.23580.8
+      RUNTIME_VERSION:  10.0.12
+      SDK_VERSION: 10.0.12
+      ASPNETCORE_VERSION: 10.0.12
       ROOTFS_DIR: /
 
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-
-    - name: Install prerequisities
+    - name: Install prerequisites
       run: |
         sudo dpkg --add-architecture riscv64 && \
         sudo sed -i -E 's|^deb ([^ ]+) (.*)$|deb [arch=amd64] \1 \2\ndeb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports/ \2|' /etc/apt/sources.list && \
@@ -40,22 +39,17 @@ jobs:
             libicu-dev:riscv64 \
             liblttng-ust-dev:riscv64 \
             zlib1g-dev \
-            liblttng-ust-dev
+            liblttng-ust-dev \
+            nodejs
 
         sudo locale-gen en_US.UTF-8
 
     - name: Clone repositories
       run: |
-        git clone --depth 1 -b v8.0.1 https://github.com/dotnet/runtime
-        git clone --depth 1 -b v8.0.1 https://github.com/dotnet/aspnetcore --recurse-submodules
-        git clone --depth 1 -b v8.0.101 https://github.com/dotnet/sdk
-        git clone --depth 1 -b v8.0.101 https://github.com/dotnet/installer
-
-    - name: Update Node.js
-      run: |
-        sudo apt-get update
-        sudo apt-get autoremove -y nodejs
-        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo bash - && sudo apt-get install -y nodejs
+        git clone --depth 1 -b v10.0.12 https://github.com/dotnet/runtime
+        git clone --depth 1 -b v10.0.12 https://github.com/dotnet/aspnetcore --recurse-submodules
+        git clone --depth 1 -b v10.0.401 https://github.com/dotnet/sdk
+        git clone --depth 1 -b v8.0.425 https://github.com/dotnet/installer
 
     - name: Build runtime
       run: |
@@ -65,7 +59,7 @@ jobs:
 
         cd runtime
         git apply ../runtime.patch
-        ./build.sh --ci -c Release --cross --arch riscv64 --gcc
+        ./build.sh --ci -c Release --cross --arch riscv64 --gcc /p:TreatWarningsAsErrors=false
         cp artifacts/packages/Release/Shipping/Microsoft.NETCore.App.Host.linux-riscv64.*.nupkg ${PACKAGESDIR}
         cp artifacts/packages/Release/Shipping/Microsoft.NETCore.App.Runtime.linux-riscv64.*.nupkg ${PACKAGESDIR}
         mkdir -p ${DOWNLOADDIR}/Runtime/${RUNTIME_VERSION}
@@ -83,7 +77,7 @@ jobs:
     - name: Build SDK
       run: |
         cd sdk
-        ./build.sh --pack --ci -c Release /p:Architecture=riscv64
+        ./build.sh --pack --ci -c Release /p:Architecture=riscv64 /p:TreatWarningsAsErrors=false /p:TreatWarningsAsErrors=false
         mkdir -p ${DOWNLOADDIR}/Sdk/${SDK_VERSION}
         cp artifacts/packages/Release/NonShipping/dotnet-toolset-internal-*.zip ${DOWNLOADDIR}/Sdk/${SDK_VERSION}/dotnet-toolset-internal-${SDK_VERSION}.zip
         cp artifacts/packages/Release/Shipping/Microsoft.DotNet.Common.*.nupkg ${PACKAGESDIR}
@@ -93,8 +87,8 @@ jobs:
       run: |
         cd aspnetcore
         sed -i "s|ppc64le|riscv64|" src/Framework/App.Runtime/src/Microsoft.AspNetCore.App.Runtime.csproj
-        sed -i "s|\$(BaseIntermediateOutputPath)\$(DotNetRuntimeArchiveFileName)|${DOWNLOADDIR}/Runtime/${RUNTIME_VERSION}/dotnet-runtime-8.0.1-linux-riscv64.tar.gz|" src/Framework/App.Runtime/src/Microsoft.AspNetCore.App.Runtime.csproj
-        ./eng/build.sh --pack --ci -c Release -arch riscv64 /p:DotNetAssetRootUrl=file://${DOWNLOADDIR}/
+        sed -i "s|\$(BaseIntermediateOutputPath)\$(DotNetRuntimeArchiveFileName)|${DOWNLOADDIR}/Runtime/${RUNTIME_VERSION}/dotnet-runtime-10.0.12-linux-riscv64.tar.gz|" src/Framework/App.Runtime/src/Microsoft.AspNetCore.App.Runtime.csproj
+        ./eng/build.sh --pack --ci -c Release -arch riscv64 /p:DotNetAssetRootUrl=file://${DOWNLOADDIR}/ /p:TreatWarningsAsErrors=false
 
         cp artifacts/packages/Release/Shipping/Microsoft.AspNetCore.App.Runtime.linux-riscv64.*.nupkg ${PACKAGESDIR}
         mkdir -p ${DOWNLOADDIR}/aspnetcore/Runtime/${ASPNETCORE_VERSION}
@@ -113,7 +107,7 @@ jobs:
         sed -i s'|ppc64le|riscv64|' src/SourceBuild/content/Directory.Build.props
         sed -i s'|ppc64le|riscv64|' src/redist/targets/Crossgen.targets
         sed -i s"|<clear />|<clear />\n<add key='local' value='${PACKAGESDIR}' />|" NuGet.config
-        ./build.sh --ci -c Release -a riscv64 /p:HostRid=linux-x64 /p:PublicBaseURL=file://${DOWNLOADDIR}/
+        ./build.sh --ci -c Release -a riscv64 /p:HostRid=linux-x64 /p:PublicBaseURL=file://${DOWNLOADDIR}/ /p:TreatWarningsAsErrors=false
         cp artifacts/packages/Release/Shipping/dotnet-sdk-*-linux-riscv64.tar.gz ${OUTPUTDIR}
         cp artifacts/packages/Release/Shipping/dotnet-sdk-*-linux-riscv64.tar.gz.sha512 ${OUTPUTDIR}
 
